@@ -178,19 +178,12 @@ case "$1" in
 		fi
 	;;
 	-o | --overwrite)
-		__blacklistIP reset
-		local blIP_list=""
-		while read line; do
-			local line_ip=$( echo $line | grep -Eo "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" )
-			if [[ $line_ip ]]; then
-				blIP_list+="${line_ip},"
-			fi
-		done < $blIP_saveFile
-		_blacklistIP --add $( echo $blIP_list | sed s/".$"// )
-		_blacklistIP --sort
+		__blacklistIP remove
+		_blacklistIP --load
 	;;
 	-n | --loadnew)
-		iptables -D BLACKLIST -j RETURN	# Remove return statement, It will be added back in from the end of the save file
+		# Remove return statement, It will be added back in from the end of the save file
+		iptables -D BLACKLIST -j RETURN
 		while read line; do
 			local rule=$( echo $line | sed s/"-A "// )
 			iptables -C $rule
