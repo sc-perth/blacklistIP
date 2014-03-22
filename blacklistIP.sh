@@ -1,7 +1,6 @@
+#!/bin/bash
 blIP_saveFile="/etc/blacklistIP/blacklistIP_save"
 blIP_sortFile="/etc/blacklistIP/blacklistIP_sort"
-
-#!/bin/bash
 
 # ERR
 # Send error message to stderr
@@ -31,6 +30,12 @@ case "$1" in
 		iptables -X BLACKLIST				# Deletes the chain
 		__blacklistIP create
 		return 0
+	;;
+	remove)
+		iptables -D INPUT -j BLACKLIST		# Remove global jump statement from INPUT chain
+		iptables -F BLACKLIST				# Deletes all rules in chain
+		iptables -X BLACKLIST				# Deletes the chain
+	return 0
 	;;
 	usage)	# print usage for _blacklistIP (NOT __blacklistIP)
 		echo "Usage: blacklistIP [OPTION]  [ARGUMENT]"
@@ -110,27 +115,25 @@ case "$1" in
 		# Do some grep magic to extract all valid & non zero ip addresses from BLACKLIST chain
 		#  sort them and shove them into an array
 		#15:09 < geirha> mapfile -t ips < <(pipe line|that outputs|ips|one per line)
-		"$(iptables -n -L BLACKLIST | egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | grep -v "0.0.0.0" | sort -V)" | mapfile -t blIP_iparr
+		mapfile -t blIP_iparr < <(sudo iptables -n -L BLACKLIST | egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | grep -v "0.0.0.0" | sort -V)
 		#declare -a blIP_iparr=($( iptables -n -L BLACKLIST | tr '\n' ' ' | grep "Chain BLACKLIST.*" | egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" | grep -v "0.0.0.0" | sort -V | tr '\n' ' ' ));
 
-		# Set bounds for parsing the array
-		local iter=0
-		local end=${#blIP_iparr[@]}
+		# Clear the blacklist
+		__blacklistIP reset
+		iptables -D INPUT -j BLACKLIST
 
-		__blacklistIP reset						# Clear the blacklist
-		iptables -D BLACKLIST -j RETURN	# Remove return statement, We'll add it back in at the end
-
-		# Clear $blIP_sortFile and append '*filter' as iptables-restore expects
+		# Clear $blIP_sortFile and prep file for iptables-restore
 		echo '*filter' > "$blIP_sortFile"
-		echo ':BLACKLIST' > "$blIP_sortFile"
-		while [ $iter -lt $end ]; do
-			# Iterate through and add the sorted IPs to sortFile in iptables-restore command format
-			echo -A BLACKLIST -s "${blIP_iparr[$iter]}/32" -j DROP >> "$blIP_sortFile"
-			let iter+=1
+		echo ':BLACKLIST - [0:0]' >> "$blIP_sortFile"
+		echo '-I INPUT 1 -j BLACKLIST' >> "$blIP_sortFile"
+
+		# Iterate through and add the sorted IPs to sortFile in iptables-restore command format
+		for iter_ip in "${blIP_iparr[@]}"; do
+			echo -A BLACKLIST -s "${iter_ip}/32" -j DROP >> "$blIP_sortFile"
 		done
-		# Append the return statement and ...
+		
+		# Finish the file as iptables-restore expects
 		echo '-A BLACKLIST -j RETURN' >> "$blIP_sortFile"
-		# Append 'COMMIT' as iptables-restore expects
 		echo 'COMMIT' >> "$blIP_sortFile"
 
 		# Pipe the file into iptables-restore not modifying anything else
