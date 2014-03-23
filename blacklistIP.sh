@@ -182,15 +182,19 @@ case "$1" in
 		_blacklistIP --load
 	;;
 	-n | --loadnew)
-		# Remove return statement, It will be added back in from the end of the save file
-		iptables -D BLACKLIST -j RETURN
 		while read line; do
-			local rule=$( echo $line | sed s/"-A "// )
+			# Extract the IP address
+			local rule="$( echo $line | grep -Eo '[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}' )"
+			# If we got an IP address, then encapsulate it into an iptables rule
+			if [[ -z "$rule" ]]; then continue
+			else rule="BLACKLIST -s ${rule}/32 -j DROP"; fi
+
+			# If the rule does not exist, add the rule
 			iptables -C $rule
 			if [ $? -ne 0 ]; then
-				iptables -A $rule
+				echo iptables -A "$rule"
 			fi
-		done < $blIP_saveFile
+		done < "$blIP_saveFile"
 		_blacklistIP --sort
 	;;
 	*)
@@ -203,3 +207,18 @@ esac
 
 # This line allows this script to be placed in /usr/bin/blacklistIP and used at a prompt as a command ("blacklistIP")
 _blacklistIP $@
+
+function garbage { sudo echo start; 
+	while read line; do
+		local rule="$( echo $line | grep -Eo '[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}' )"
+		if [[ -z $rule ]]; then echo BREAK; continue
+		else rule="BLACKLIST -s ${rule}/32 -j DROP"
+		fi
+
+		echo RULE: $rule
+		sudo iptables -C $rule
+		if [ $? -ne 0 ]; then
+			echo iptables -A $rule
+		fi
+	done < <(sudo cat /etc/blacklistIP/blacklistIP_save)
+};
