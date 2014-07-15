@@ -1,6 +1,8 @@
 #!/bin/bash
-blIP_saveFile="/etc/blacklistIP/blacklistIP_save"
-blIP_sortFile="/etc/blacklistIP/blacklistIP_sort"
+blIP_workDir="/etc/blacklistIP/"
+blIP_saveFile="${blIP_workDir}blacklistIP_save"
+blIP_sortFile="${blIP_workDir}blacklistIP_sort"
+blIP_compFile="${blIP_workDir}blacklistIP_comp"
 
 # ERR
 # Send error message to stderr
@@ -12,9 +14,11 @@ function __blacklistIP_ERR { echo "!!! ERROR : $@" 1>&2; }
 function __blacklistIP {
 case "$1" in
 	exists)
-		iptables -C BLACKLIST -j RETURN					# Check for return rule in BLACKLIST chain, fails if no rule or chain, both legit failures
+		# Check for return rule in BLACKLIST chain, fails if no rule or chain, both legit failures
+		iptables -C BLACKLIST -j RETURN
 		if [ $? -gt 0 ]; then return 1; fi
-		iptables -n -L INPUT | grep -q 'BLACKLIST[ \t]'	# Check for jump target in INPUT chain, grep returns 1 if not found
+		# Check for jump target in INPUT chain, grep returns 1 if not found
+		iptables -n -L INPUT | grep -q 'BLACKLIST[ \t]'
 		if [ $? -gt 0 ]; then return 1; fi
 		return 0
 	;;
@@ -42,7 +46,9 @@ case "$1" in
 		echo -e "User-friendly front-end to dropping all inbound packets from specified IPs using iptables\n"
 		echo -e "  [OPTION]\t [ARGUMENT]\t Descriptive statement"
 		echo -e "  -a --add\t  IP[,IP[,...]]\t Drop/Block incoming packets from IP(s)"
-		echo -e "  -d --load\t  --NONE--\t Initializes the iptables and loads the IPs to block from\n\t\t\t\t\t"$blIP_saveFile" (only useful after a reboot)"
+		echo -e "  -c --compare\t  --NONE--\t Compare the current BLACKLIST chain to the saved one"
+		echo -e "  -d --load\t  --NONE--\t Initializes the iptables and loads the IPs to block from"
+				echo -e "\t\t\t\t\t"$blIP_saveFile" (only useful after a reboot)"
 		echo -e "  -h --help\t  --NONE--\t Prints help & usage information (this message)"
 		echo -e "  -l --list\t  --NONE--\t Prints list of blocked IPs in chain"
 		echo -e "  -n --loadnew\t  --NONE--\t Adds any IPs in "$blIP_saveFile" that are not currently in the chain"
@@ -65,7 +71,8 @@ case "$1" in
 		return 0
 	;;
 	-a | --add)
-		# Check to see if input is a valid IP (also works on multiple, comma seperated IPs; might let bad IPs through if they aren't the first in the list)
+		# Check to see if input is a valid IP (also works on multiple, comma seperated IPs;
+		#	might let bad IPs through if they aren't the first in the list)
 		if [[ $2 =~  [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3} ]]; then
 				
 			# Check if BLACKLIST chain exists, if not: create it
@@ -76,6 +83,35 @@ case "$1" in
 			iptables -I BLACKLIST 1 -s $2 -j DROP
 			return 0
 		fi
+	;;
+	-c | --compare)
+		__blacklistIP exists
+		if [[ $? -gt 0 ]]; then
+			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist."
+			return 1
+		fi
+		#BUILD COMPARISON FILE
+		echo '*filter' > "$blIP_compFile"
+		# get all of the lines relating to the BLACKLIST chain
+		iptables-save | grep -e ".*BLACKLIST.*" >> "$blIP_compFile"
+		# append 'COMMIT' as iptables-restore expects
+		echo 'COMMIT' >> "$blIP_compFile"
+		# replace -Add instruction with -Insert instruction
+		sed -i 's/.A INPUT -j BLACKLIST/-I INPUT 1 -j BLACKLIST/' "$blIP_compFile"
+
+		#OUTPUT
+		#LEFT file (exists in current but not in save)
+		mapfile -t blIP_iparr < <( comm -23 <(sort "$blIP_compFile") <(sort "$blIP_saveFile") )
+		echo "Rules currently in the BLACKLIST chain that are NOT saved:"
+		for ((arr_itter=0; arr_itter < ${#blIP_iparr[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
+			echo -e "\t${blIP_iparr[$arr_itter]}"
+		done
+		#RIGHT file (exists in save but not in current)
+		mapfile -t blIP_iparr < <( comm -13 <(sort "$blIP_compFile") <(sort "$blIP_saveFile") )
+		echo "Rules currently SAVED that are NOT currently in the BLACKLIST chain:"
+		for ((arr_itter=0; arr_itter < ${#blIP_iparr[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
+			echo -e "\t${blIP_iparr[$arr_itter]}"
+		done
 	;;
 	-l | --list)
 		__blacklistIP exists
@@ -91,7 +127,8 @@ case "$1" in
 			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist."
 			return 1
 		fi
-		# Check to see if input is a valid IP (also works on multiple, comma seperated IPs; might let bad IPs through if they aren't the first in the list)
+		# Check to see if input is a valid IP (also works on multiple, comma seperated IPs;
+		#	might let bad IPs through if they aren't the first in the list)
 		if [[ $2 =~  [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3} ]]; then
 			# Check for target
 			iptables -C BLACKLIST -s $2 -j DROP
@@ -150,7 +187,7 @@ case "$1" in
 		# clear $blIP_saveFile, append '*filter' (iptable name) as iptables-restore expects
 		echo '*filter' > "$blIP_saveFile"
 		# get all of the lines relating to the BLACKLIST chain
-		iptables-save | grep -e ".*BLACKLIST.*" >> "$blIP_saveFile"
+		iptables-save | grep ".*BLACKLIST.*" >> "$blIP_saveFile"
 		# append 'COMMIT' as iptables-restore expects
 		echo 'COMMIT' >> "$blIP_saveFile"
 		# replace -Add instruction with -Insert instruction
@@ -182,19 +219,27 @@ case "$1" in
 		_blacklistIP --load
 	;;
 	-n | --loadnew)
-		while read line; do
-			# Extract the IP address
-			local rule="$( echo $line | grep -Eo '[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}' )"
-			# If we got an IP address, then encapsulate it into an iptables rule
-			if [[ -z "$rule" ]]; then continue
-			else rule="BLACKLIST -s ${rule}/32 -j DROP"; fi
+		# Create a file similar to $blIP_saveFile
+		echo '*filter' > "$blIP_compFile"
+		# get all of the lines relating to the BLACKLIST chain
+		iptables-save | grep ".*BLACKLIST.*" >> "$blIP_compFile"
+		# append 'COMMIT' as iptables-restore expects
+		echo 'COMMIT' >> "$blIP_compFile"
+		# replace -Add instruction with -Insert instruction
+		sed -i 's/.A INPUT -j BLACKLIST/-I INPUT 1 -j BLACKLIST/' "$blIP_compFile"
 
-			# If the rule does not exist, add the rule
-			iptables -C $rule
-			if [ $? -ne 0 ]; then
-				echo iptables -A "$rule"
-			fi
-		done < "$blIP_saveFile"
+
+		# Compare the 2 files; assign any IPs unique to $blIP_saveFile to an array entry
+		mapfile -t blIP_iparr < <( comm -13 <(sort "$blIP_compFile") <(sort "$blIP_saveFile") | grep -Eo '[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}' )
+		
+		# Encase those rules into an iptables-restore file
+		echo '*filter' > "$blIP_compFile"
+		echo ':BLACKLIST - [0:0]' >> "$blIP_compFile"
+		for ip_iterr in ${blIP_iparr[@]}; do
+			echo "-A BLACKLIST -s ${ip_iterr}/32 -j DROP" >> "$blIP_compFile"
+		done
+		echo 'COMMIT' >> "$blIP_compFile"
+		cat "$blIP_compFile" | iptables-restore -nc --table=filter
 		_blacklistIP --sort
 	;;
 	*)
@@ -206,19 +251,9 @@ esac
 }
 
 # This line allows this script to be placed in /usr/bin/blacklistIP and used at a prompt as a command ("blacklistIP")
-_blacklistIP $@
-
-function garbage { sudo echo start; 
-	while read line; do
-		local rule="$( echo $line | grep -Eo '[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}' )"
-		if [[ -z $rule ]]; then echo BREAK; continue
-		else rule="BLACKLIST -s ${rule}/32 -j DROP"
-		fi
-
-		echo RULE: $rule
-		sudo iptables -C $rule
-		if [ $? -ne 0 ]; then
-			echo iptables -A $rule
-		fi
-	done < <(sudo cat /etc/blacklistIP/blacklistIP_save)
-};
+if [ "$(id -u)" = "0" ]; then
+	_blacklistIP $@
+else
+	echo "You do not have the necessary privilages to run this command"
+	exit 1
+fi
