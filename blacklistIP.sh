@@ -51,7 +51,7 @@ case "$1" in
 				echo -e "\t\t\t\t\t"$blIP_saveFile" (only useful after a reboot)"
 		echo -e "  -h --help\t  --NONE--\t Prints help & usage information (this message)"
 		echo -e "  -l --list\t  --NONE--\t Prints list of blocked IPs in chain"
-		echo -e "  -n --loadnew\t  --NONE--\t Adds any IPs in "$blIP_saveFile" that are not currently in the chain"
+		echo -e "  -i --import\t  --NONE--\t Adds any IPs in "$blIP_saveFile" that are not currently in the chain"
 		echo -e "  -o --overwrite  --NONE--\t clears all IPs from the chain and loads all IPs in "$blIP_saveFile
 		echo -e "  -r --rem\t  IP\t\t Removes IP from chain"
 		echo -e "  -s --sort\t  --NONE--\t Sort the IPs in the chain"
@@ -86,7 +86,7 @@ case "$1" in
 	;;
 	-c | --compare)
 		__blacklistIP exists
-		if [[ $? -gt 0 ]]; then
+		if [ $? -gt 0 ]; then
 			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist."
 			return 1
 		fi
@@ -115,7 +115,7 @@ case "$1" in
 	;;
 	-l | --list)
 		__blacklistIP exists
-		if [[ $? -gt 0 ]]; then
+		if [ $? -gt 0 ]; then
 			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist."
 			return 1
 		fi
@@ -123,7 +123,7 @@ case "$1" in
 	;;
 	-r | --rem)
 		__blacklistIP exists
-		if [[ $? -gt 0 ]]; then
+		if [ $? -gt 0 ]; then
 			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist."
 			return 1
 		fi
@@ -218,7 +218,16 @@ case "$1" in
 		__blacklistIP remove
 		_blacklistIP --load
 	;;
-	-n | --loadnew)
+	-i | --import)
+		# If file exists, and can be read
+		if [[ ! -f $blIP_saveFile && ! -r $blIP_saveFile ]]; then 
+			__blacklistIP_ERR "blacklistIP: "$blIP_saveFile"does not exist or is not readable";
+		fi
+		__blacklistIP exists
+		if [ $? -gt 0 ]; then
+			__blacklistIP_ERR "blacklistIP: IPchain 'BLACKLIST' does not exist, please create and populate first"
+			return 1
+		fi
 		# Create a file similar to $blIP_saveFile
 		echo '*filter' > "$blIP_compFile"
 		# get all of the lines relating to the BLACKLIST chain
