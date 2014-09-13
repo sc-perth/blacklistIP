@@ -101,17 +101,26 @@ case "$1" in
 
 		#OUTPUT
 		#LEFT file (exists in current but not in save)
-		mapfile -t blIP_iparr < <( comm -23 <(sort "$blIP_compFile") <(sort "$blIP_saveFile") )
-		echo "Rules currently in the BLACKLIST chain that are NOT saved:"
-		for ((arr_itter=0; arr_itter < ${#blIP_iparr[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
-			echo -e "\t${blIP_iparr[$arr_itter]}"
-		done
+		mapfile -t blIP_commL < <( comm -23 <(egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" "$blIP_compFile" | sort) <(egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" "$blIP_saveFile" | sort) )
 		#RIGHT file (exists in save but not in current)
-		mapfile -t blIP_iparr < <( comm -13 <(sort "$blIP_compFile") <(sort "$blIP_saveFile") )
-		echo "Rules currently SAVED that are NOT currently in the BLACKLIST chain:"
-		for ((arr_itter=0; arr_itter < ${#blIP_iparr[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
-			echo -e "\t${blIP_iparr[$arr_itter]}"
-		done
+		mapfile -t blIP_commR < <( comm -13 <(egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" "$blIP_compFile" | sort) <(egrep -o "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}" "$blIP_saveFile" | sort) )
+
+		if [[ ${#blIP_commL[@]} -eq 0 && ${#blIP_commR[@]} -eq 0 ]]; then
+			echo "Everything is identical."
+		else
+			if [ ${#blIP_commL[@]} -gt 0 ]; then
+				echo "IPs currently in the BLACKLIST chain that are NOT saved:"
+				for ((arr_itter=0; arr_itter < ${#blIP_commL[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
+					echo -e "\t${blIP_commL[$arr_itter]}"
+				done
+			fi
+			if [ ${#blIP_commR[@]} -gt 0 ]; then
+				echo "IPs currently SAVED that are NOT currently in the BLACKLIST chain:"
+				for ((arr_itter=0; arr_itter < ${#blIP_commR[@]}; arr_itter++)); do	#${#arrName[@]} = num elements in array
+					echo -e "\t${blIP_commR[$arr_itter]}"
+				done
+			fi
+		fi
 	;;
 	-l | --list)
 		__blacklistIP exists
