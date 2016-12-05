@@ -182,8 +182,8 @@ case "$1" in
 		echo '-A BLACKLIST -j RETURN' >> "$blIP_sortFile"
 		echo 'COMMIT' >> "$blIP_sortFile"
 
-		# Pipe the file into iptables-restore not modifying anything else
-		cat "$blIP_sortFile" | iptables-restore -nc --table=filter
+		# Redirect the file into iptables-restore not modifying anything else
+		iptables-restore -nc --table=filter < "$blIP_sortFile"
 		return 0
 	;;
 	-w | --save)
@@ -217,7 +217,7 @@ case "$1" in
 			iptables -N BLACKLIST
 			# use iptables-restore to insert BLACKLIST chain and all rules,
 			#  and don't modify anything else
-			cat "$blIP_saveFile" | iptables-restore -nc --table=filter
+			iptables-restore -nc --table=filter < "$blIP_saveFile"
 		else
 			__blacklistIP_ERR "blacklistIP: ${blIP_saveFile} does not exist or is not readable"
 			return 1
@@ -257,7 +257,7 @@ case "$1" in
 			echo "-A BLACKLIST -s ${ip_iterr}/32 -j DROP" >> "$blIP_compFile"
 		done
 		echo 'COMMIT' >> "$blIP_compFile"
-		cat "$blIP_compFile" | iptables-restore -nc --table=filter
+		iptables-restore -nc --table=filter < "$blIP_compFile"
 		_blacklistIP --sort
 	;;
 	*)
