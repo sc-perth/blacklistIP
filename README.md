@@ -2,12 +2,11 @@
 
 Usage: blacklistIP [OPTION] [ARGUMENT]<br/>
 User-friendly front-end to dropping all inbound packets from specified IPs using iptables<br/>
-<br/>
 <table>
   <tr>
-    <td>[OPTION]</td>
-    <td>[ARGUMENT]</td>
-    <td>Descriptive statement</td>
+    <td><b>[OPTION]</b></td>
+    <td><b>[ARGUMENT]</b></td>
+    <td><b>Descriptive statement</b></td>
   </tr>
   <tr>
     <td>-a --add</td>
