@@ -1,4 +1,4 @@
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/69c10a7defbe47aa91a100a12182c08e)](https://www.codacy.com/app/perth/blacklistIP?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=sc-perth/blacklistIP&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/69c10a7defbe47aa91a100a12182c08e)](https://www.codacy.com/app/perth/blacklistIP?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=sc-perth/blacklistIP&amp;utm_campaign=Badge_Grade)<br/>
 Usage: blacklistIP [OPTION]  [ARGUMENT]
 User-friendly front-end to dropping all inbound packets from specified IPs using iptables
 
