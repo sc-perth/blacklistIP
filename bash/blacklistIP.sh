@@ -48,10 +48,10 @@ case "$1" in
 		echo -e "  -a --add\t  IP[,IP[,...]]\t Drop/Block incoming packets from IP(s)"
 		echo -e "  -c --compare\t  --NONE--\t Compare the current BLACKLIST chain to the saved one"
 		echo -e "  -d --load\t  --NONE--\t Initializes the iptables and loads the IPs to block from"
-				echo -e "\t\t\t\t\t"$blIP_saveFile" (only useful after a reboot)"
+				echo -e "\t\t\t\t\t${blIP_saveFile} (only useful after a reboot)"
 		echo -e "  -h --help\t  --NONE--\t Prints help & usage information (this message)"
 		echo -e "  -l --list\t  --NONE--\t Prints list of blocked IPs in chain"
-		echo -e "  -i --import\t  --NONE--\t Adds any IPs in "$blIP_saveFile" that are not currently in the chain"
+		echo -e "  -i --import\t  --NONE--\t Adds any IPs in ${blIP_saveFile} that are not currently in the chain"
 		echo -e "  -o --overwrite  --NONE--\t clears all IPs from the chain and loads all IPs in "$blIP_saveFile
 		echo -e "  -r --rem\t  IP\t\t Removes IP from chain"
 		echo -e "  -s --sort\t  --NONE--\t Sort the IPs in the chain"
@@ -219,7 +219,7 @@ case "$1" in
 			#  and don't modify anything else
 			cat "$blIP_saveFile" | iptables-restore -nc --table=filter
 		else
-			__blacklistIP_ERR "blacklistIP: "$blIP_saveFile" does not exist or is not readable"
+			__blacklistIP_ERR "blacklistIP: ${blIP_saveFile} does not exist or is not readable"
 			return 1
 		fi
 	;;
@@ -230,7 +230,7 @@ case "$1" in
 	-i | --import)
 		# If file exists, and can be read
 		if [[ ! -f $blIP_saveFile && ! -r $blIP_saveFile ]]; then 
-			__blacklistIP_ERR "blacklistIP: "$blIP_saveFile"does not exist or is not readable";
+			__blacklistIP_ERR "blacklistIP: ${blIP_saveFile} does not exist or is not readable";
 		fi
 		__blacklistIP exists
 		if [ $? -gt 0 ]; then
